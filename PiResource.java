@@ -128,11 +128,11 @@ public class PiResource extends ObaPiResource implements PiResourceSwagger {
 				pi = service.completeAction(pi, action);
 				messagingService.sendUpdateMessageToQueue(pi);
 				break;
-			case "startSubWorkflow":
+			case START_SUB_WORKFLOW:
 				pi = service.startSubWorkflow(pi, action);
 				messagingService.sendUpdateMessageToQueue(pi);
 				break;
-			case "startCloseWorkflow":
+			case START_CLOSE_WORKFLOW:
 				pi = service.startCloseWorkflow(pi, action);
 				messagingService.sendUpdateMessageToQueue(pi);
 				break;

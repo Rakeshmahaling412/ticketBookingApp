@@ -1,6 +1,7 @@
 package com.socgen.pad.obi.web.rest;
 
 import com.socgen.pad.framework.domain.exception.FunctionalException;
+import com.socgen.pad.framework.domain.model.ResponseAttachment;
 import com.socgen.pad.framework.web.rest.interceptor.RSController;
 import com.socgen.pad.obi.domain.model.MessageType;
 import com.socgen.pad.obi.domain.model.ObaPi;
@@ -12,6 +13,7 @@ import com.socgen.pad.obi.web.rest.swagger.ObaResourceSwagger;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
+import org.elasticsearch.core.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -21,6 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -51,6 +54,7 @@ public class ObaResource extends ObaPiResource implements ObaResourceSwagger {
     ConsumptionResponseDtoMapper dtoMapper;
     ObaPiConsumptionService obaPiConsumptionService;
     CloneConfigurationService configurationService;
+    ObaPiReminderService obaPiReminderService;
 
     private static final String CLONE_CONFIGURATION = "clone.configuration";
 
@@ -181,11 +185,11 @@ public class ObaResource extends ObaPiResource implements ObaResourceSwagger {
                 oba = service.completeAction(oba, action);
                 messagingService.sendUpdateMessageToQueue(oba);
                 break;
-            case "startSubWorkflow":
+            case START_SUB_WORKFLOW:
                 oba = service.startSubWorkflow(oba, action);
                 messagingService.sendUpdateMessageToQueue(oba);
                 break;
-            case "startCloseWorkflow":
+            case START_CLOSE_WORKFLOW:
                 oba = service.startCloseWorkflow(oba, action);
                 messagingService.sendUpdateMessageToQueue(oba);
                 break;
@@ -197,31 +201,21 @@ public class ObaResource extends ObaPiResource implements ObaResourceSwagger {
                 oba = service.deleteSavedAsDraft(oba, action, activeRole);
                 messagingService.sendUpdateMessageToQueue(oba);
                 break;
+            case ESCALATE:
+                if (request.getId() == null) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Missing id for escalation"));
+                }
+                ObaPi obaEscalate = new ObaPi();
+                obaEscalate.setId(request.getId());
+                obaEscalate = service.escalate(obaEscalate, action);
+                messagingService.sendUpdateMessageToQueue(obaEscalate);
+                break;
             default:
                 throw new IllegalArgumentException("Invalid actionType. Must be one of: complete, close, completeAction, startSubWorkflow, startCloseWorkflow, delete, deleteSavedAsDraft");
         }
         return mapper.toResponse(oba);
     }
 
-    @Override
-    @PostMapping("starts/sub-workflows/closes/{action}")
-    @PreAuthorize("@featureSecurity.hasFeatures('" + OBA_SUBMIT + "')")
-    public Object startCloseSubWorkflow(@PathVariable String action, @RequestBody RequestAndAction requestAndAction) {
-        ObaPi oba = mapper.toModel(requestAndAction.getRequest());
-        oba = service.startCloseWorkflow(oba, action, requestAndAction.getActionCanBePerformed());
-        messagingService.sendUpdateMessageToQueue(oba);
-        return mapper.toResponse(oba);
-    }
-
-    @Override
-    @PostMapping("starts/sub-workflows/{action}")
-    @PreAuthorize("@featureSecurity.hasFeatures('" + OBA_SUBMIT + "')")
-    public Object startSubWorkflow(@PathVariable String action, @RequestBody RequestDto request) {
-        ObaPi oba = mapper.toModel(request);
-        oba = service.startSubWorkflow(oba, action);
-        messagingService.sendUpdateMessageToQueue(oba);
-        return mapper.toResponse(oba);
-    }
 
     public Object close(String action, RequestDto request, UUID id) {
         ObaPi oba = mapper.toModel(request);
@@ -244,22 +238,17 @@ public class ObaResource extends ObaPiResource implements ObaResourceSwagger {
         return service.getByRequesterById(id);
     }
 
-    @Override
-    @PutMapping("{id}/escalations/{action}")
-    @PreAuthorize("@featureSecurity.hasFeatures('" + OBA_ADMIN_REVIEW + "')")
-    public Object escalate(@PathVariable String action, @PathVariable UUID id) {
-        ObaPi oba = new ObaPi();
-        oba.setId(id);
-        oba = service.escalate(oba, action);
-        messagingService.sendUpdateMessageToQueue(oba);
-        return mapper.toResponse(oba);
-    }
 
-    public ResponseEntity<?> performAction(@RequestBody ObaActionRequest request) throws FunctionalException {
+
+
+    @Override
+    @PutMapping("actions")
+    public ResponseEntity<?> performAction(@RequestBody ObaActionRequest request) throws FunctionalException, IOException {
         String action = request.getAction() == null ? "" : request.getAction().toUpperCase();
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
         switch (action) {
-            case "MIGRATE":
+            case MIGRATE:
                 if (authentication == null || authentication.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals(OBA_SUBMIT))) {
                     throw new AccessDeniedException("Access denied: requires OBA_SUBMIT role");
                 }
@@ -274,8 +263,9 @@ public class ObaResource extends ObaPiResource implements ObaResourceSwagger {
                     }
                     migrationResponses.add(response);
                 }
-                return ResponseEntity.ok(migrationResponses);
-            case "SYNC":
+                return ResponseEntity.ok(new ApiResponseWrapper<>(migrationResponses));
+
+            case SYNC:
                 if (authentication == null || authentication.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals(REPORT_ADMIN))) {
                     throw new AccessDeniedException("Access denied: requires REPORT_ADMIN role");
                 }
@@ -284,30 +274,57 @@ public class ObaResource extends ObaPiResource implements ObaResourceSwagger {
                 } else {
                     obaSyncService.syncAll(request.getJobId(), request.getCountry());
                 }
-                return ResponseEntity.ok("Sync triggered");
-            case "CLONE":
+                return ResponseEntity.ok(new ApiResponseWrapper<>("Sync triggered"));
+
+            case CLONE:
                 if (authentication == null || authentication.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals(CLONE_CONFIGURATION))) {
                     throw new AccessDeniedException("Access denied: requires CLONE_CONFIGURATION role");
                 }
                 Object typeObj = request.getType();
                 com.socgen.pad.obi.domain.model.ObaPiType obaPiType = com.socgen.pad.obi.domain.model.ObaPiType.valueOf(typeObj.toString());
-                return ResponseEntity.ok(
-                        configurationService.cloneAllFromCountry(
-                                request.getCountry(),
-                                request.getCountry(),
-                                obaPiType
-                        )
-                );
-            case "EXPIRE":
+                Object cloneResult = configurationService.cloneAllFromCountry(request.getCountry(), request.getCountry(), obaPiType);
+                return ResponseEntity.ok(new ApiResponseWrapper<>(cloneResult));
+
+            case EXPIRE:
                 expirationObaPiService.expireObaPi(request.getCountry(), request.getJobId());
-                return ResponseEntity.ok("Expiration started");
-            case "RETENTION":
+                return ResponseEntity.ok(new ApiResponseWrapper<>("Expiration started"));
+
+            case RETENTION:
                 dataRetentionService.purgeObaPiDataByInstance(request.getJobId(), request.getInstance(), request.getType());
-                return ResponseEntity.ok("Retention started");
+                return ResponseEntity.ok(new ApiResponseWrapper<>("Retention started"));
+
+            case EXPORT:
+                if (request.getId() == null) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Missing OBA id for export"));
+                }
+                ObaPi obaPi = service.getById(request.getId());
+                String language = request.getLanguage();
+                RequestWorkflowAuditTrailHistoryDto auditRequests = request.getAuditTrailHistoryDto();
+                if (language == null || auditRequests == null) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Missing language or audit information for export"));
+                }
+                ResponseAttachment pdf = service.generatePdfDocument(mapper.toResponse(obaPi), language, auditRequests.getAudits(), auditRequests.getTimezone());
+                return ResponseEntity.ok(new ApiResponseWrapper<>(pdf));
+
+            case REMINDER:
+                String role = request.getRole();
+                String country = request.getCountry();
+                String type = request.getType() != null ? request.getType().toString() : null;
+                UUID jobId = request.getJobId();
+                if ("manager".equalsIgnoreCase(role)) {
+                    obaPiReminderService.reminderManager(country, type, jobId);
+                } else if ("employee".equalsIgnoreCase(role)) {
+                    obaPiReminderService.reminderEmployee(jobId, type, country);
+                } else {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Invalid role"));
+                }
+                return ResponseEntity.ok(new ApiResponseWrapper<>(role + " reminder started"));
+
             default:
-                throw new IllegalArgumentException("Invalid action");
+                throw new IllegalArgumentException("Invalid action: " + action);
         }
     }
+
 
     ResponseDto migratePi(MigrationRequestDto request, String country) {
         ObaPi obaPi = piDtoMapper.toModel(request.getObaPi(), request.getType());
