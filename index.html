@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>PAD</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="PAD <environment> website">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
+  <link rel="icon" type="image/x-icon" href="assets/images/favicon.ico">
+  <script src="https://shared.sgmarkets.com/widgets/sgwt-widget-polyfills/sgwt-widget-polyfill-webcomponent.js"></script>
+  <script>
+    SGWTWidgetConfiguration = {
+      environment: 'homologation'
+    }
+  </script>
+    <script>
+        function loadJSON(filePath) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', filePath, false);
+            xhr.send(null);
+            if (xhr.status === 200) {
+                return JSON.parse(xhr.responseText);
+            }
+            return null;
+        }
+
+        var appconfig = loadJSON('/assets/config/appconfig.json');
+        var appId = 'pad-default';
+        if (appconfig && appconfig.splash_ID) {
+            if (appconfig.splash_ID ==='pad-dev-local') {
+                appId = 'pad-dev-local';
+            } if (appconfig.splash_ID ==='pad-qa') {
+                appId = 'pad-qa';
+            }if (appconfig.splash_ID ==='pad-uat') {
+                appId = 'pad-uat';
+            }if (appconfig.splash_ID ==='pad-preprod-eur') {
+                appId = 'pad-preprod-eur';
+            }if (appconfig.splash_ID ==='pad-preprod-us') {
+                appId = 'pad-preprod-us';
+            }if (appconfig.splash_ID ==='pad-prod-us') {
+                appId = 'pad-prod-us';
+            }
+            if(appconfig.splash_ID==='pad-prod-eur'){
+                appId = 'pad-prod-eur';
+            }
+        }
+        document.write('<sgwt-splash-screen application-id="' + appId + '"></sgwt-splash-screen>');
+    </script>
+    <script
+            type="text/javascript"
+            defer
+            src="https://sgwt-cdn-widgets.sgmarkets.com/widgets/sgwt-splash-screen/v4/sgwt-splash-screen.js"
+    ></script>
+</head>
+
+<body class="bg-lvl2">
+  <pad-root></pad-root>
+
+  <!-- Inclusion of sgwt widgets -->
+  <script src="https://shared.sgmarkets.com/widgets/sgwt-connect/v4/sgwt-connect.js" defer></script>
+  <script src="https://shared.sgmarkets.com/widgets/sgwt-account-center/v4/sgwt-account-center.js" defer></script>
+  <script src="https://shared.sgmarkets.com/widgets/sgwt-mini-footer/v4/sgwt-mini-footer.js" defer></script>
+
+  <sgwt-connect></sgwt-connect>
+  <noscript>Please enable JavaScript to continue using this application.</noscript>
+</body>
+
+
+</html>
