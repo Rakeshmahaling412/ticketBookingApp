@@ -1,0 +1,23 @@
+<pad-collapsible [title]="title" [collapsible]="collapsible">
+    <div class="row">
+        <div class="col">
+            <button *ngIf="enableExport" class="btn btn-flat-black float-right" type="button" (click)="exportData()"
+                    translate>
+                <em class="icon text-secondary icon-lg pr-2">save_alt</em>
+                EXPORT
+            </button>
+            <pad-ag-grid-preference [gridOptions]="gridOptions" [gridName]="gridName"></pad-ag-grid-preference>
+        </div>
+    </div>
+    <ag-grid-angular [ngStyle]="{'height': gridHeight + 'px','width': '100%'}"
+                     [class]="theme"
+                     [rowData]="data"
+                     [gridOptions]="gridOptions"
+                     [sideBar]="sideBar"
+                     [suppressContextMenu]="true"
+                     [frameworkComponents]="frameworkComponents"
+                     (rowClicked)="onRowClick($event)"
+                     [postProcessPopup]="postProcessPopup"
+                     (gridReady)="onGridReady($event)">
+    </ag-grid-angular>
+</pad-collapsible>
