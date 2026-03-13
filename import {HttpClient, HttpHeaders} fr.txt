@@ -1,0 +1,231 @@
+import {HttpClient, HttpHeaders} from '@angular/common/http';
+import {Injectable} from '@angular/core';
+import {NgxPermissionsService, NgxRolesService} from 'ngx-permissions';
+import {Subject, Observable, of} from 'rxjs';
+import {map, switchMap} from 'rxjs/operators';
+
+import {environment} from '../../../../environments/environment';
+import {ISgwtConnectElement} from '../../../../main';
+import {Feature} from '../../../routes/user-management/shared/model/feature';
+import {Role} from '../../../routes/user-management/shared/model/role';
+import {UserModel} from '../../../routes/user-management/shared/model/user.model';
+import {UserService} from '../../../routes/user-management/shared/services/user.service';
+import {LocalStorageUtils} from './local-storage.utils';
+import {UserRoleUtils} from './user-role-utils';
+import {Router} from '@angular/router';
+import {Country} from '../feature-country/country.constants';
+import {RoleConstants} from '../../constants/role.enum';
+import {CountryService} from '../../../routes/user-management/shared/services/country.service';
+
+const wrapper = document.querySelector('sgwt-connect') as ISgwtConnectElement;
+
+@Injectable()
+export class AuthenticationService {
+
+    private readonly USER_MANAGEMENT_URL = environment.USER_MANAGEMENT_API_URL;
+
+    sgwtConnect = wrapper.sgwtConnect;
+    readonly roleSubject: Subject<Role>;
+    private isValidUser: boolean;
+    private onboardedCountries: string[] = [];
+
+    constructor(private readonly userService: UserService,
+                private readonly permissionsService: NgxPermissionsService,
+                private readonly rolesService: NgxRolesService,
+                private readonly router: Router,
+                private readonly http: HttpClient,
+                private readonly countryService: CountryService) {
+        this.roleSubject = new Subject<Role>();
+    }
+
+    init(): Promise<boolean> {
+        return new Promise<boolean>((resolve, reject) => {
+            const url = `${this.USER_MANAGEMENT_URL}users/current`;
+            const httpHeaders = new HttpHeaders({
+                'Authorization': this.sgwtConnect.getAuthorizationHeader(),
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            });
+            const options = {headers: httpHeaders};
+            this.http.get(url, options).pipe(
+                map(res => res['data'])
+            ).subscribe((connectedUser: UserModel) => {
+                const activeRoleTmp =  UserRoleUtils.getActiveRole(connectedUser.roles, connectedUser.country);
+                try {
+                    this.setActiveRole(connectedUser, activeRoleTmp);
+                } catch (e) {
+                    if (activeRoleTmp === undefined) {
+                        this.router.navigate(['page-blank']);
+                    }
+                }
+                resolve(true);
+            });
+        });
+    }
+
+    setValidConnectedUser(connectedUser: UserModel): void {
+        this.isValidUser = connectedUser.activatedRole !== undefined;
+    }
+    get isConnectedUserValid(): boolean {
+        return this.isValidUser;
+    }
+
+    setActiveRole(connectedUser: UserModel, activeRole: Role): void {
+        connectedUser.activatedRole = activeRole;
+        this.setValidConnectedUser(connectedUser);
+        connectedUser.features = activeRole.features.map((feature: Feature) => feature.keyName);
+        for (const role of connectedUser.roles) {
+            this.rolesService.addRole(role.keyName, () => true);
+        }
+        this.permissionsService.loadPermissions(connectedUser.features);
+        LocalStorageUtils.storeUser(connectedUser);
+        this.roleSubject.next(activeRole);
+    }
+
+    currentUser(): UserModel {
+        return LocalStorageUtils.getStoredUser();
+    }
+
+    get activeRole(): string {
+        return this.currentUser().activatedRole.keyName;
+    }
+
+    getName(): string {
+        const currentUser = this.currentUser();
+        return `${currentUser.firstName} ${currentUser.lastName}`;
+    }
+
+//     getPerimeterCountries(): Observable<string[]> {
+//         const user = this.currentUser();
+//         if (this.activeRole === 'IT SUPPORT') {
+//             return this.countryService.getSourceCountry().pipe(
+//                 map((data: Country[]) => {
+//                     console.log('[AuthService][IT SUPPORT] getSourceCountry() raw data:', data);
+//                     const result = data.length > 0 ? data.map(c => String(c)).sort() : [];
+//                     console.log('[AuthService][IT SUPPORT] mapped/sorted countries:', result);
+//                     return result;
+//                 })
+//             );
+//         }
+//         const countries = user.perimeter ? user.perimeter.grantCountries : [user.country];
+//         console.log('[AuthService][DEFAULT] perimeter.grantCountries or user.country:', countries);
+//         return of(countries);
+//     }
+
+
+
+// getPerimeterCountries() {
+//     const user = this.currentUser();
+//     console.log('[AuthService][getPerimeterCountries] currentUser:', user);
+//     console.log('[AuthService][getPerimeterCountries] Cureent Role:', this.activeRole);
+//     // Only IT_SUPPORT role (fix: match actual role string)
+//     if (this.activeRole === 'IT_SUPPORT') {
+//         console.log('[AuthService][getPerimeterCountries] activeRole is IT_SUPPORT');
+//         if (this.onboardedCountries.length === 0) {
+//             this.countryService.getSourceCountry().subscribe((res: any) => {
+//                 console.log('[AuthService][getPerimeterCountries] getSourceCountry() response:', res);
+//                 this.onboardedCountries = (res?.data || [])
+//                     .filter((c: any) => c.onboarded)
+//                     .map((c: any) => c.iso);
+//                 console.log('[AuthService][getPerimeterCountries] onboardedCountries after fetch:', this.onboardedCountries);
+//             });
+//         } else {
+//             console.log('[AuthService][getPerimeterCountries] onboardedCountries already set:', this.onboardedCountries);
+//         }
+//         console.log('[AuthService][getPerimeterCountries] returning onboardedCountries:', this.onboardedCountries);
+//         return this.onboardedCountries;
+//     }
+//     const result = user.perimeter ? user.perimeter.grantCountries : [user.country];
+//     console.log('[AuthService][getPerimeterCountries] returning grantCountries or user.country:', result);
+//     return result;
+// }
+
+
+getPerimeterCountries() {
+    const user = this.currentUser();
+    console.log('[AuthService][getPerimeterCountries] currentUser:', user);
+    console.log('[AuthService][getPerimeterCountries] Current Role:', this.activeRole);
+
+    if (this.activeRole === 'IT_SUPPORT') {
+        console.log('[AuthService][getPerimeterCountries] activeRole is IT_SUPPORT');
+
+        if (this.onboardedCountries.length === 0) {
+            console.log('[AuthService][getPerimeterCountries] onboardedCountries empty, fetching...');
+            this.countryService.getSourceCountry().subscribe((res: any) => {
+                console.log('[AuthService][getPerimeterCountries] getSourceCountry() response:', res);
+                this.onboardedCountries = (res?.data || [])
+                    .filter((c: any) => c.onboarded)
+                    .map((c: any) => c.iso);
+                console.log('[AuthService][getPerimeterCountries] onboardedCountries after fetch:', this.onboardedCountries);
+            });
+            // Return empty array immediately while data loads
+            return [];
+        } else {
+            console.log('[AuthService][getPerimeterCountries] onboardedCountries already set:', this.onboardedCountries);
+            return this.onboardedCountries;
+        }
+    }
+
+    const result = user.perimeter ? user.perimeter.grantCountries : [user.country];
+    console.log('[AuthService][getPerimeterCountries] returning grantCountries or user.country:', result);
+    return result;
+}
+
+    hasFeatures(features: string[]): boolean {
+        return this.currentUser().features.some((feature: string) => features.includes(feature));
+    }
+
+    hasFeaturesByGgi(ggi: string, features: string[]): Promise<boolean> {
+        return new Promise(resolve => {
+            this.userService.getUserFeaturesByGgi(ggi).subscribe(userFeatures => {
+                    const featuresKeys = Array.from(userFeatures.map(feature => feature.keyName));
+                    const hasFeatures = featuresKeys.some((feature: string) => features.includes(feature));
+                    resolve(hasFeatures);
+                },
+                err => resolve(false)
+            );
+        });
+    }
+
+    isAmerRegion(){
+        return this.currentUser()?.country === Country.CA || this.currentUser()?.country === Country.US;
+    }
+
+    isCountryUS(){
+        return this.currentUser()?.country === Country.US;
+    }
+
+    isCountryCA(){
+        return this.currentUser()?.country === Country.CA;
+    }
+
+    isCountryBR(){
+        return this.currentUser()?.country === Country.BR;
+    }
+    isCountryFR(){
+        return this.currentUser()?.country === Country.FR;
+    }
+    isCountryGB(){
+        return this.currentUser()?.country === Country.GB;
+    }
+
+    canViewDataOfCAJVEMployees(recordLegalEntityId){
+        return  this.isCountryCA() || (recordLegalEntityId === '0000020592' && this.isCountryUS() && (this.currentUser().activatedRole.keyName === RoleConstants.ComplianceAdmin || this.currentUser().activatedRole.keyName === RoleConstants.ControlRoom));
+    }
+
+    canViewCanadaData(recordCountry, recordLegalEntityId){
+        if(recordCountry === Country.CA){
+            return this.canViewDataOfCAJVEMployees(recordLegalEntityId);
+        }
+        return true;
+    }
+
+    isSEACountry(){
+        return  [Country.SG,Country.MY,Country.ID,Country.VN].indexOf(this.currentUser().country) !== -1;
+    }
+
+   getControlRoomUserNames() {
+           const countries = this.getPerimeterCountries();
+           return this.userService.getControlRoomUsers(countries);
+       }
+}
