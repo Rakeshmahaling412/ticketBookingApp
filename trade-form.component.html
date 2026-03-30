@@ -1,0 +1,170 @@
+<div *ngIf="form">
+    <div class="form-row">
+        <div class="col-md-6">
+            <pad-trade-product-type [form]="form" [readonly]="readonly" [formSubmitted]="isSubmitted"
+                                    [productTypes]="productTypes" *ngIf="productTypes" (isManualSearchSecurity)="manualSecuritySearch($event)" (defaultSearchBy)="ResetSearchBy($event)"></pad-trade-product-type>
+        </div>
+        <div class="col-md-6" [hidden]="isManualSecuritySearch">
+            <pad-trade-account [form]="form" [readonly]="readonly" [formSubmitted]="isSubmitted"
+                               [requesterGgi]="requesterGgi"
+                               [requesterCountry]="requesterCountry"
+                               [requestStatus]="requestStatus"
+                               *ngIf="hasViewPersonalInformationFeature && ManageValidatorsWhenProductTypeIsIpoOrEsop()">
+            </pad-trade-account>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group col" *ngIf="!readonly">
+            <pad-trade-security-search [form]="form" [productTypes]="productTypes" *ngIf="productTypes" [isManualSecuritySearch]="isManualSecuritySearch"
+                                       (readOnlySecurityChange)="onReadOnlySecurityChanged($event)">
+            </pad-trade-security-search>
+        </div>
+        <div class="form-group col">
+            <pad-trade-security [form]="form" [readonly]="isSecurityReadOnly" [isIpo]="isManualSecuritySearch"
+                                [formSubmitted]="isSubmitted"></pad-trade-security>
+        </div>
+    </div>
+
+    <pad-trade-option [form]="form" [readonly]="isSecurityReadOnly" [openCloseReadonly]="readonly" [formSubmitted]="isSubmitted"></pad-trade-option>
+
+    <div class="form-row">
+        <div class="col form-group">
+            <label class="control-label"  translate>BUY_SELL</label>
+        </div>
+        <div class="col form-group" *ngIf="hasViewPersonalInformationFeature">
+            <label [ngClass]="{'control-label' : isControlRequired(quantity) || !isManualSecuritySearch}" translate>QUANTITY</label>
+        </div>
+        <div *ngIf="tradeDropDownComponent" class="col form-group">
+            <label class="control-label" translate>GTC_ORDER</label>
+        </div>
+        <div *ngIf="held30DaysComponent && operation.value === 'SELL'" class="col-md-4 form-group">
+            <label class="control-label" translate>HELD_HOLDING_PERIOD_DAYS_WITH_POLICY_GUIDANCE</label>
+        </div>
+    </div>
+    <div class="form-row">
+        <div class="col">
+            <pad-trade-operation [form]="form" [readonly]="readonly"
+                                 [country]="country"
+                                 [isIpo]="isManualSecuritySearch"
+                                 [formSubmitted]="isSubmitted"></pad-trade-operation>
+        </div>
+        <div class="col" *ngIf="hasViewPersonalInformationFeature">
+            <pad-trade-quantity [form]="form" [readonly]="readonly" [formSubmitted]="isSubmitted"></pad-trade-quantity>
+        </div>
+        <div *ngIf="tradeDropDownComponent" class="col">
+            <pad-trade-gtc-order [form]="form" [readonly]="readonly" [formSubmitted]="isSubmitted"></pad-trade-gtc-order>
+        </div>
+        <div *ngIf="held30DaysComponent && operation.value === 'SELL'" class="col-md-4">
+            <pad-dynamic-component [componentName]="held30DaysComponent"
+                                   [form]="form"
+                                   [readOnly]="readonly"
+                                   [formSubmitted]="isSubmitted">
+            </pad-dynamic-component>
+        </div>
+    </div>
+    <div class="form-row">
+        <div *ngIf="tradeDropDownComponent && operation.value === 'BUY'" class="col-md-4 form-group">
+            <label class="control-label" translate>COVER_SHORT_POSITION</label>
+        </div>
+
+        <div *ngIf="tradeDropDownComponent && operation.value === 'SELL' || coverShortPosition.value === true" class="col-md-4 form-group">
+            <label class="control-label" translate>HELD_HOLDING_PERIOD_DAYS_WITH_POLICY_GUIDANCE</label>
+        </div>
+
+        <div *ngIf="tradeDropDownComponent && heldFor30Days.value === false && operation.value === 'SELL'" class="col-md-4 form-group">
+            <label class="control-label" translate>VALUE_DECLINED</label>
+        </div>
+        <div *ngIf="tradeDropDownComponent && heldFor30Days.value === false && operation.value === 'BUY'" class="col-md-4 form-group">
+            <label class="control-label" translate>VALUE_INCREASED</label>
+        </div>
+        <div *ngIf="tradeDropDownComponent && valueDropped.value === false && operation.value === 'SELL'" class="col-md-4 form-group">
+            <label class="control-label" translate>SHORT_SALE</label>
+        </div>
+    </div>
+    <div class="form-row">
+        <div *ngIf="tradeDropDownComponent && operation.value === 'BUY'" class="col-md-4">
+            <pad-dynamic-component [componentName]="tradeDropDownComponent"
+                                   [form]="form"
+                                   [readOnly]="readonly"
+                                   [data] = "coverShortPositionData"
+                                   [formSubmitted]="isSubmitted">
+            </pad-dynamic-component>
+        </div>
+
+        <div *ngIf="tradeDropDownComponent && (operation.value === 'SELL' || coverShortPosition.value === true)" class="col-md-4">
+            <pad-dynamic-component [componentName]="tradeDropDownComponent"
+                                   [form]="form"
+                                   [readOnly]="readonly"
+                                   [data] = "heldFor30DaysData"
+                                   [formSubmitted]="isSubmitted">
+            </pad-dynamic-component>
+        </div>
+
+        <div *ngIf="tradeDropDownComponent && heldFor30Days.value === false && operation.value === 'BUY'" class="col-md-4">
+            <pad-dynamic-component [componentName]="tradeDropDownComponent"
+                                   [form]="form"
+                                   [readOnly]="readonly"
+                                   [data] = "valueIncreaseData"
+                                   [formSubmitted]="isSubmitted">
+            </pad-dynamic-component>
+        </div>
+
+        <div *ngIf="tradeDropDownComponent && heldFor30Days.value === false && operation.value === 'SELL'" class="col-md-4">
+            <pad-dynamic-component [componentName]="tradeDropDownComponent"
+                                   [form]="form"
+                                   [readOnly]="readonly"
+                                   [data] = "valueDropData"
+                                   [formSubmitted]="isSubmitted">
+            </pad-dynamic-component>
+        </div>
+
+        <div *ngIf="tradeDropDownComponent && valueDropped.value === false && operation.value === 'SELL'" class="col-md-4">
+            <pad-dynamic-component [componentName]="tradeDropDownComponent"
+                                   [form]="form"
+                                   [readOnly]="readonly"
+                                   [data] = "shortSellData"
+                                   [formSubmitted]="isSubmitted">
+            </pad-dynamic-component>
+        </div>
+    </div>
+
+    <div *ngIf="hasViewPersonalInformationFeature && totalValueComponent">
+        <pad-dynamic-component [componentName]="totalValueComponent"
+                               [form]="form"
+                               [readOnly]="readonly"
+                               [formSubmitted]="isSubmitted">
+        </pad-dynamic-component>
+    </div>
+
+    <div *ngIf="!readonly">
+        <pad-trade-comment [form]="form"
+                           [country]="country"
+                           [formSubmitted]="isSubmitted">
+        </pad-trade-comment>
+    </div>
+
+    <div class="mb-3" *ngIf="!readonly">
+        <button type="button" class="btn btn-outline-primary float-right ml-3"
+                (click)="onAdd()" *ngIf="mode === 'add'"
+                translate>ADD
+        </button>
+        <button type="button" class="btn btn-outline-primary float-right ml-3" (click)="onSave()"
+                *ngIf="mode === 'edit'"
+                translate>SAVE
+        </button>
+        <button type="button" class="btn btn-default float-right" [disabled]="!form.dirty" (click)="onReset()"
+                translate>RESET
+        </button>
+        <button type="button" class="btn btn-default float-right" (click)="onCancel()" translate>CANCEL</button>
+    </div>
+</div>
+
+<ng-template #alertpopup>
+    <div class="modal-content shadow-max" style="padding-top:1rem">
+        <div class="modal-body">
+            <h5 class="text-center" translate>SG_INSIDER_TRADE</h5>
+            <button class="btn sgbs-btn-default mx-auto d-block" data-dismiss="modal" (click)="onCloseAlertPopup()" translate>CLOSE</button>
+        </div>
+    </div>
+</ng-template>

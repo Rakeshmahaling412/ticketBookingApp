@@ -1,0 +1,21 @@
+<div class="form-group" [formGroup]="form" *ngIf="isVisible">
+    <div>
+        <div class="btn-group btn-group-toggle w-100" role="group">
+            <label class="btn btn-toggle-primary cursor-pointer w-50" [ngClass]="{'active': heldFor30Days.value === true}">
+                <input type="radio" name="isHeldFor30Days" [value]="true" formControlName="isHeldFor30Days"
+                       autocomplete="yes" [attr.disabled]="readOnly ? true : null"/>
+                <span translate>YES</span>
+            </label>
+            <label class="btn btn-toggle-primary cursor-pointer w-50" [ngClass]="{'active': heldFor30Days.value === false}">
+                <input type="radio" name="isHeldFor30Days" [value]="false" formControlName="isHeldFor30Days"
+                       autocomplete="no" [attr.disabled]="readOnly ? true : null"/>
+                <span translate>NO</span>
+            </label>
+        </div>
+        <div class="text-danger" *ngIf="formSubmitted && heldFor30Days.invalid">
+            <div *ngIf="heldFor30Days.errors.required">
+                <small><span translate>REQUIRED_FIELD</span></small>
+            </div>
+        </div>
+    </div>
+</div>
