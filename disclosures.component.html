@@ -1,0 +1,170 @@
+<div class="d-flex flex-column justify-content-end mx-n2"></div>
+<div class="container-fluid ml-12 mt-4" *ngIf="isTabVisible">
+    <div class="row">
+        <div class="col-md-6 d-flex align-items-center">
+                <h1 class="display-3 mr-3">{{activeRole | translate}}</h1>
+            <div class="d-flex align-items-center" style="margin-top: 10px">
+                <h4 *ngIf="activeRoleKeyName === RoleConstants.Employee && (esgeStatusFromService === 'ESGE31' || esgeStatusFromService === 'ESGE45')" class="mr-6">
+                    {{ esgeStatus }}
+                </h4>
+                <h4 *ngIf="activeRoleKeyName === RoleConstants.Employee && (esgeStatusFromService === 'ESGE31' || esgeStatusFromService === 'ESGE45')" class="mr-3" style="margin-left: 3px">
+                    {{ tradeStatus }}
+                </h4>
+            </div>
+        </div>
+        <div *ngIf="quickActionsComponents; let componentName;" class="col-md-6 col-sm-12 mt-auto mb-3">
+            <pad-dynamic-component [componentName]="componentName"></pad-dynamic-component>
+        </div>
+    </div>
+    <ul class="nav nav-tabs mt-3 ml-n3">
+        <li class="nav-item" *ngIf="isCountryUSorCA">
+            <a class="nav-link" routerLink="my-profile" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.todoEmployee]" translate>
+                MY_PROFILE
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="todo/employee" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.todoEmployee]" translate>
+                    MY_TO_DO_LIST
+                </a>
+        </li>
+        <li class="nav-item" *ngIf="!isCampaignReviewer">
+            <a class="nav-link" routerLink="trade-approvals" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.tradeApprovalSubmit]" translate>
+                    PRE_APPROVALS
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="accounts" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.accountDisclose, features.accountRework, features.accountViewMyAccount]" translate>
+                {{ isBrazil ? 'CPF_NUMBERS' : 'BROKERAGE_ACCOUNTS' }}
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="oba" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.obaSubmit]" translate>
+                    OBA
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="pi" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.piSubmit]" translate>
+                    PI
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="todo/manager" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.obaManagerReview, features.piManagerReview, features.preApprovalManagerApprove, features.tradeApprovalManagerReview, features.tradeApprovalApproverReview]"
+                translate>
+                    MY_TO_DO_LIST
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="trade-approvals/manager" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.tradeApprovalManagerReview]" translate>
+                    PRE_APPROVALS
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="oba/manager" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.obaManagerReview]" translate>
+                    OBA
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="pi/manager" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.piManagerReview]" translate>
+                    PI
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="dashboard/manager-weekly-report" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.dashboardManagerWeeklyReport]" translate>
+                    EMPLOYEE_TRADE_SUPERVISORY_REPORT
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="oba/admin" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.obaSupplementalApproverReview]" translate>
+                    OBA
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="pi/admin" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.piSupplementalApproverReview]" translate>
+                    PI
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="todo/admin" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.todoAdmin]" translate>
+                    MY_TO_DO_LIST
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="dashboard/admin" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.dashboardAdmin]" translate>
+                    DASHBOARD
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="accounts/admin" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.accountViewAllAccount]" translate>
+                {{ isBrazil ? 'CPF_NUMBER' : 'BROKERAGE_ACCOUNTS' }}
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="oba/admin" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.obaViewAll, features.obaSeglReview]" translate>
+                    OBA
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="pi/admin" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.piViewAll]" translate>
+                    PI
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="oba/admin" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.obaSupplementalApproverReview]" translate>
+                    OBA
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="pi/admin" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.piSupplementalApproverReview]" translate>
+                    PI
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="trade-approvals/admin" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.tradeApprovalAdminReview, features.tradeApprovalViewAll]" translate>
+                    PRE_APPROVALS
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="trade-approvals/transactions/admin" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.transactionView, features.transactionAdd]" translate>
+                    TRANSACTIONS
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="trade-approvals/reconciliations/admin" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.reconciliationDashboardView]" translate>
+                   RECONCILIATION_DASHBOARD
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="oba/admin" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.obaAdminReview]" translate>
+                    OBA
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="pi/admin" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.piAdminReview]" translate>
+                    PI
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="certifications/admin" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.certificationAdmin]" translate>
+                    CERTIFICATIONS
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="dashboard/on-behalf-manager-weekly-report" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.dashboardManagerWeeklyReportByEmployee]" translate>
+                    EMPLOYEE_TRADE_SUPERVISORY_REPORT
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="dashboard/quarterly-transaction-report" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.viewAllQuarterlyTransactionReports]" translate>
+                   QUARTERLY_TRANSACTION_REPORT
+                </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" routerLink="dashboard/annual-holdings-report" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" *ngxPermissionsOnly="[features.viewAllAnnualHoldingsReports]" translate>
+                   ANNUAL_HOLDINGS_REPORT
+                </a>
+        </li>
+    </ul>
+</div>
+<div [ngClass]="{'bg-white': isTabVisible, 'p-3': true}">
+    <router-outlet></router-outlet>
+</div>
