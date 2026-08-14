@@ -1,0 +1,185 @@
+package sg.breach.breachdraft.controller;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+import sg.breach.breachdraft.dto.BreachDraftResponse;
+import sg.breach.breachdraft.dto.BulkUpdateEmailStatusRequest;
+import sg.breach.breachdraft.dto.CreateBreachDraftRequest;
+import sg.breach.breachdraft.dto.SaveDraftToBreachRequest;
+import sg.breach.breachdraft.dto.UpdateBreachDraftRequest;
+import sg.breach.breachdraft.service.BreachDraftService;
+import sg.breach.user.entity.ConnectedUser;
+import sg.breach.user.entity.Permission;
+import sg.breach.user.service.UserService;
+
+@Validated
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/breach-drafts")
+public class BreachDraftsController {
+
+    private final BreachDraftService breachDraftService;
+    private final UserService userService;
+
+    @GetMapping
+    public List<BreachDraftResponse> getAll(HttpServletRequest request) {
+        ConnectedUser user = getAuthenticatedUser(request);
+        checkPermission(user, Permission.READ_BREACH);
+        return breachDraftService.getAll();
+    }
+
+    @GetMapping("/{id}")
+    public BreachDraftResponse getById(@PathVariable long id, HttpServletRequest request) {
+        ConnectedUser user = getAuthenticatedUser(request);
+        checkPermission(user, Permission.READ_BREACH);
+        return breachDraftService.getById(id);
+    }
+
+
+    @GetMapping("/by-creator/{creator}")
+    public List<BreachDraftResponse> getByCreator(@PathVariable String creator , HttpServletRequest request) {
+        ConnectedUser user = getAuthenticatedUser(request);
+        checkPermission(user, Permission.READ_BREACH);
+        return breachDraftService.getByCreator(creator);
+    }
+
+    @GetMapping("/by-entities")
+    public List<BreachDraftResponse> getByLegalEntities(@RequestParam List<String> entities, HttpServletRequest request) {
+        ConnectedUser user = getAuthenticatedUser(request);
+        checkPermission(user, Permission.READ_BREACH);
+        return breachDraftService.getByLegalEntities(entities);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public BreachDraftResponse create(@Valid @RequestBody CreateBreachDraftRequest DraftRequest,HttpServletRequest httpRequest) {
+        ConnectedUser user = getAuthenticatedUser(httpRequest);
+        checkPermission(user, Permission.CREATE_BREACH);
+        return breachDraftService.create(DraftRequest);
+    }
+
+    @PutMapping("/{id}")
+    public BreachDraftResponse update(@PathVariable Long id, @RequestBody UpdateBreachDraftRequest request, HttpServletRequest httpRequest) {
+        ConnectedUser user = getAuthenticatedUser(httpRequest);
+        checkPermission(user, Permission.EDIT_BREACH);
+        return breachDraftService.update(id, request);
+    }
+
+    @PostMapping("/{id}/save-to-breach")
+    public BreachDraftResponse saveDraftToBreach(@PathVariable long id, @Valid @RequestBody SaveDraftToBreachRequest request,HttpServletRequest httpRequest) {
+        ConnectedUser user = getAuthenticatedUser(httpRequest);
+        checkPermission(user, Permission.EDIT_BREACH);
+        return breachDraftService.saveDraftToBreach(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable long id,HttpServletRequest httpRequest) {
+        ConnectedUser user = getAuthenticatedUser(httpRequest);
+        checkPermission(user, Permission.EDIT_BREACH);
+        breachDraftService.delete(id);
+    }
+
+    @PostMapping("/bulk/update-email-status")
+    public Map<String, Object> bulkUpdateEmailStatus(@Valid @RequestBody BulkUpdateEmailStatusRequest request,HttpServletRequest httpRequest) {
+        ConnectedUser user = getAuthenticatedUser(httpRequest);
+        checkPermission(user, Permission.EDIT_BREACH);
+        int updatedCount = breachDraftService.bulkUpdateEmailStatus(request);
+        return Map.of(
+                "message", "Successfully updated email status",
+                "updatedCount", updatedCount,
+                "emailStatus", request.emailStatus()
+        );
+    }
+
+
+    @GetMapping("/export")
+    public List<BreachDraftResponse> export( HttpServletRequest httpRequest) {
+        ConnectedUser user = getAuthenticatedUser(httpRequest);
+        checkPermission(user, Permission.EDIT_BREACH);
+        return breachDraftService.getAllForExport();
+    }
+
+    @GetMapping("/filters/email-statuses")
+    public List<String> getEmailStatuses(HttpServletRequest httpRequest) {
+        ConnectedUser user = getAuthenticatedUser(httpRequest);
+        checkPermission(user, Permission.READ_BREACH);
+        return breachDraftService.getEmailStatuses();
+    }
+
+    @GetMapping("/filters/statuses")
+    public List<String> getStatuses(HttpServletRequest httpRequest) {
+        ConnectedUser user = getAuthenticatedUser(httpRequest);
+        checkPermission(user, Permission.READ_BREACH);
+        return breachDraftService.getStatuses();
+    }
+
+    @GetMapping("/filters/identification-methods")
+    public List<String> getIdentificationMethods(HttpServletRequest httpRequest) {
+        ConnectedUser user = getAuthenticatedUser(httpRequest);
+        checkPermission(user, Permission.READ_BREACH);
+        return breachDraftService.getIdentificationMethods();
+    }
+
+    @GetMapping("/filters/breach-types")
+    public List<String> getBreachTypes(HttpServletRequest httpRequest) {
+        ConnectedUser user = getAuthenticatedUser(httpRequest);
+        checkPermission(user, Permission.READ_BREACH);
+        return breachDraftService.getBreachTypes();
+    }
+
+    @GetMapping("/filters/emails")
+    public List<String> getEmailAddresses(HttpServletRequest httpRequest) {
+        ConnectedUser user = getAuthenticatedUser(httpRequest);
+        checkPermission(user, Permission.READ_BREACH);
+        return breachDraftService.getEmailAddresses();
+    }
+
+    @GetMapping("/filters/policies")
+    public List<String> getPolicies(HttpServletRequest httpRequest) {
+        ConnectedUser user = getAuthenticatedUser(httpRequest);
+        checkPermission(user, Permission.READ_BREACH);
+        return breachDraftService.getPolicies();
+    }
+
+    @GetMapping("/filters/legal-entities")
+    public List<String> getLegalEntities(HttpServletRequest httpRequest) {
+        ConnectedUser user = getAuthenticatedUser(httpRequest);
+        checkPermission(user, Permission.READ_BREACH);
+        return breachDraftService.getLegalEntities();
+    }
+
+    @GetMapping("/filters/business-units")
+    public List<String> getBusinessUnits(HttpServletRequest httpRequest) {
+        ConnectedUser user = getAuthenticatedUser(httpRequest);
+        checkPermission(user, Permission.READ_BREACH);
+        return breachDraftService.getBusinessUnits();
+    }
+
+    private ConnectedUser getAuthenticatedUser(HttpServletRequest request) {
+        return userService.getOneBy(request);
+    }
+
+
+    private void checkPermission(ConnectedUser user, Permission requiredPermission) {
+        if (user == null || user.permissions() == null ||
+            !user.permissions().contains(requiredPermission)) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN, "User does not have required permission");
+        }
+    }
+}
