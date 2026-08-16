@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -70,22 +72,23 @@ public class BreachDraftsController {
     public BreachDraftResponse create(@Valid @RequestBody CreateBreachDraftRequest DraftRequest,HttpServletRequest httpRequest) {
         ConnectedUser user = getAuthenticatedUser(httpRequest);
         checkPermission(user, Permission.CREATE_BREACH);
-        return breachDraftService.create(DraftRequest);
+        return breachDraftService.create(DraftRequest,user);
     }
 
     @PutMapping("/{id}")
     public BreachDraftResponse update(@PathVariable Long id, @RequestBody UpdateBreachDraftRequest request, HttpServletRequest httpRequest) {
         ConnectedUser user = getAuthenticatedUser(httpRequest);
         checkPermission(user, Permission.EDIT_BREACH);
-        return breachDraftService.update(id, request);
+        return breachDraftService.update(id, request,user);
     }
 
     @PostMapping("/{id}/save-to-breach")
-    public BreachDraftResponse saveDraftToBreach(@PathVariable long id, @Valid @RequestBody SaveDraftToBreachRequest request,HttpServletRequest httpRequest) {
+    public BreachDraftResponse saveDraftToBreach(@PathVariable long id, @Valid @RequestBody SaveDraftToBreachRequest request, HttpServletRequest httpRequest) {
         ConnectedUser user = getAuthenticatedUser(httpRequest);
         checkPermission(user, Permission.EDIT_BREACH);
-        return breachDraftService.saveDraftToBreach(id, request);
+        return breachDraftService.saveDraftToBreach(id, request,user);
     }
+
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -100,11 +103,7 @@ public class BreachDraftsController {
         ConnectedUser user = getAuthenticatedUser(httpRequest);
         checkPermission(user, Permission.EDIT_BREACH);
         int updatedCount = breachDraftService.bulkUpdateEmailStatus(request);
-        return Map.of(
-                "message", "Successfully updated email status",
-                "updatedCount", updatedCount,
-                "emailStatus", request.emailStatus()
-        );
+        return Map.of("message", "Successfully updated email status", "updatedCount", updatedCount, "emailStatus", request.emailStatus());
     }
 
 
@@ -171,14 +170,20 @@ public class BreachDraftsController {
         return breachDraftService.getBusinessUnits();
     }
 
+    @PostMapping("/status/expired")
+    public ResponseEntity<Void> massiveUpdateStatusExpired(
+            @RequestBody List<Long> ids,
+            @AuthenticationPrincipal ConnectedUser user) {
+        breachDraftService.massiveUpdateStatusExpired(ids, user);
+        return ResponseEntity.noContent().build();
+    }
+
     private ConnectedUser getAuthenticatedUser(HttpServletRequest request) {
         return userService.getOneBy(request);
     }
 
-
     private void checkPermission(ConnectedUser user, Permission requiredPermission) {
-        if (user == null || user.permissions() == null ||
-            !user.permissions().contains(requiredPermission)) {
+        if (user == null || user.permissions() == null || !user.permissions().contains(requiredPermission)) {
             throw new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN, "User does not have required permission");
         }
     }
