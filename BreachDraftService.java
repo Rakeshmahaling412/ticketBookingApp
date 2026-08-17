@@ -4,17 +4,21 @@ import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import sg.breach.breachdraft.dto.BreachDraftResponse;
-import sg.breach.breachdraft.dto.BulkUpdateEmailStatusRequest;
+import sg.breach.breachdraft.dto.BreachDraftSpecification;
 import sg.breach.breachdraft.dto.CreateBreachDraftRequest;
 import sg.breach.breachdraft.dto.SaveDraftToBreachRequest;
 import sg.breach.breachdraft.dto.UpdateBreachDraftRequest;
 import sg.breach.breachdraft.entity.BreachDraftEntity;
 import sg.breach.breachdraft.repository.BreachDraftRepository;
+import sg.breach.user.entity.ConnectedUser;
 
 
 @Service
@@ -22,15 +26,10 @@ import sg.breach.breachdraft.repository.BreachDraftRepository;
 public class BreachDraftService {
 
     private static final String DEFAULT_ACTOR = "system";
+    private static final String EXPIRED = "EXPIRED";
 
     private final BreachDraftRepository breachDraftRepository;
 
-    @Transactional(readOnly = true)
-    public List<BreachDraftResponse> getAll() {
-        return breachDraftRepository.findAll().stream()
-                                    .map(this::toResponse)
-                                    .toList();
-    }
 
     @Transactional(readOnly = true)
     public BreachDraftResponse getById(long id) {
@@ -38,38 +37,40 @@ public class BreachDraftService {
     }
 
     @Transactional(readOnly = true)
-    public List<BreachDraftResponse> getByCreator(String creator) {
-        String normalizedCreator = normalizeActor(creator);
-        return breachDraftRepository.findByCreateByOrderByCreateTimeDesc(normalizedCreator).stream()
-                                    .map(this::toResponse)
-                                    .toList();
+    public Page<BreachDraftResponse> getAll(Pageable pageable, String breachCaseId, String breachCaseInputter, String emailAddress, String employeeName, String employeeIgg, String legalEntity, String businessUnit, String breachCategory,
+                                            String breachType,
+                                            String suggestedSeverity,
+                                            String breachFrequency,
+                                            String cumulativeBreachScore,
+                                            String identifiedBreachDate,
+                                            String breachDate,
+                                            String status,
+                                            String identificationMethod,
+                                            String emailStatus,
+                                            String batchId) {
+
+        Specification<BreachDraftEntity> specification = BreachDraftSpecification.filter( breachCaseId, breachCaseInputter, emailAddress, employeeName, employeeIgg, legalEntity, businessUnit, breachCategory, breachType, suggestedSeverity, breachFrequency, cumulativeBreachScore, identifiedBreachDate, breachDate, status,
+                                                                                          identificationMethod,
+                                                                                          emailStatus,
+                                                                                          batchId
+        );
+        return breachDraftRepository.findAll(specification, pageable).map(this::toResponse);
     }
 
-    @Transactional(readOnly = true)
-    public List<BreachDraftResponse> getByLegalEntities(List<String> legalEntities) {
-        if (legalEntities == null || legalEntities.isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "At least one legal entity must be provided"
-            );
-        }
-        return breachDraftRepository.findByLegalEntityInOrderByCreateTimeDesc(legalEntities).stream()
-                                    .map(this::toResponse)
-                                    .toList();
-    }
+
 
     @Transactional
-    public BreachDraftResponse create(CreateBreachDraftRequest request) {
-        String normalizedEmail = normalizeEmail(request.emailAddress());
-        if (!isValidEmail(normalizedEmail)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Email address must be valid"
-            );
+    public BreachDraftResponse create(CreateBreachDraftRequest request, ConnectedUser user) {
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request cannot be null");
         }
 
-        String actor = normalizeActor(request.createdBy());
+        String normalizedEmail = normalizeEmail(request.emailAddress());
+        if (!isValidEmail(normalizedEmail)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email address must be valid");
+        }
 
+        String actor = normalizeActor(user.igg());
         BreachDraftEntity entity = new BreachDraftEntity();
         entity.setBatchId(trimToNull(request.batchId()));
         entity.setComplianceOfficer(trimOrDefault(request.complianceOfficer(), ""));
@@ -115,20 +116,19 @@ public class BreachDraftService {
         entity.setEmailSentTimestamp(request.emailSentTimestamp());
         entity.setEmailSentTo(normalizeEmail(request.emailSentTo()));
         entity.setEmailCc(normalizeEmail(request.emailCc()));
-
         entity.setBreachScore(null);
         entity.setOccurrence(null);
         entity.setCumulativeBreachScore(null);
         entity.setRecommendedAction(null);
-
         entity.setCreateBy(actor);
         entity.setLastUpdateBy(actor);
 
         return toResponse(breachDraftRepository.save(entity));
     }
 
+
     @Transactional
-    public BreachDraftResponse update(long id, UpdateBreachDraftRequest request) {
+    public BreachDraftResponse update(long id, UpdateBreachDraftRequest request,ConnectedUser user) {
         BreachDraftEntity entity = findDraftOrThrow(id);
 
         if (request.batchId() != null) {
@@ -271,15 +271,19 @@ public class BreachDraftService {
             entity.setEmailCc(normalizeEmail(request.emailCc()));
         }
 
-        entity.setLastUpdateBy(normalizeActor(request.updatedBy()));
+        entity.setLastUpdateBy(normalizeActor(user.firstName()));
 
         return toResponse(breachDraftRepository.save(entity));
     }
 
-    @Transactional
-    public BreachDraftResponse saveDraftToBreach(long id, SaveDraftToBreachRequest request) {
-        BreachDraftEntity entity = findDraftOrThrow(id);
 
+    @Transactional
+    public BreachDraftResponse saveDraftToBreach(long id, SaveDraftToBreachRequest request, ConnectedUser user) {
+
+        BreachDraftEntity entity = findDraftOrThrow(id);
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request cannot be null");
+        }
         if (request.breachScore() != null) {
             entity.setBreachScore(request.breachScore());
         }
@@ -292,13 +296,10 @@ public class BreachDraftService {
         if (request.recommendedAction() != null) {
             entity.setRecommendedAction(trimToNull(request.recommendedAction()));
         }
-
-        entity.setLastUpdateBy(normalizeActor(request.updatedBy()));
-
-
-
+        entity.setLastUpdateBy(normalizeActor(user.igg()));
         return toResponse(breachDraftRepository.save(entity));
     }
+
 
     @Transactional
     public void delete(long id) {
@@ -306,94 +307,11 @@ public class BreachDraftService {
         breachDraftRepository.delete(entity);
     }
 
-    @Transactional
-    public int bulkUpdateEmailStatus(BulkUpdateEmailStatusRequest request) {
-        if (request.ids() == null || request.ids().isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "IDs list cannot be empty"
-            );
-        }
 
-        String emailStatus = trimToNull(request.emailStatus());
-        if (emailStatus == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Email status is required"
-            );
-        }
 
-        String actor = normalizeActor(request.updatedBy());
-
-        List<BreachDraftEntity> drafts = breachDraftRepository.findAllById(request.ids());
-
-        if (drafts.isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "No drafts found with provided IDs"
-            );
-        }
-
-        for (BreachDraftEntity draft : drafts) {
-            draft.setEmailStatus(emailStatus);
-            draft.setLastUpdateBy(actor);
-        }
-
-        breachDraftRepository.saveAll(drafts);
-        return drafts.size();
-    }
-
-    @Transactional(readOnly = true)
-    public List<BreachDraftResponse> getAllForExport() {
-        return getAll();
-    }
-
-    @Transactional(readOnly = true)
-    public List<String> getEmailStatuses() {
-        return breachDraftRepository.findDistinctEmailStatuses();
-    }
-
-    @Transactional(readOnly = true)
-    public List<String> getStatuses() {
-        return breachDraftRepository.findDistinctStatuses();
-    }
-
-    @Transactional(readOnly = true)
-    public List<String> getIdentificationMethods() {
-        return breachDraftRepository.findDistinctIdentificationMethods();
-    }
-
-    @Transactional(readOnly = true)
-    public List<String> getBreachTypes() {
-        return breachDraftRepository.findDistinctBreachTypes();
-    }
-
-    @Transactional(readOnly = true)
-    public List<String> getEmailAddresses() {
-        return breachDraftRepository.findDistinctEmailAddresses();
-    }
-
-    @Transactional(readOnly = true)
-    public List<String> getPolicies() {
-        return breachDraftRepository.findDistinctPolicies();
-    }
-
-    @Transactional(readOnly = true)
-    public List<String> getLegalEntities() {
-        return breachDraftRepository.findDistinctLegalEntities();
-    }
-
-    @Transactional(readOnly = true)
-    public List<String> getBusinessUnits() {
-        return breachDraftRepository.findDistinctBusinessUnits();
-    }
 
     private BreachDraftEntity findDraftOrThrow(long id) {
-        return breachDraftRepository.findById(id)
-                                    .orElseThrow(() -> new ResponseStatusException(
-                                            HttpStatus.NOT_FOUND,
-                                            "Breach draft with id '" + id + "' not found"
-                                    ));
+        return breachDraftRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Breach draft with id '" + id + "' not found"));
     }
 
     private BreachDraftResponse toResponse(BreachDraftEntity entity) {
@@ -454,6 +372,28 @@ public class BreachDraftService {
         );
     }
 
+
+    @Transactional
+    public void massiveUpdateStatusExpired(List<Long> ids, ConnectedUser user) {
+        if (ids == null || ids.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "IDs list cannot be empty");
+        }
+
+        List<BreachDraftEntity> drafts = breachDraftRepository.findAllById(ids);
+
+        if (drafts.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No drafts found with provided IDs");
+        }
+
+        String actor = normalizeActor(user.igg());
+        for (BreachDraftEntity draft : drafts) {
+            draft.setStatus(EXPIRED);
+            draft.setLastUpdateBy(actor);
+        }
+        breachDraftRepository.saveAll(drafts);
+    }
+
+
     private String normalizeActor(String actor) {
         return hasText(actor) ? actor.trim().toLowerCase(Locale.ROOT) : DEFAULT_ACTOR;
     }
@@ -483,5 +423,6 @@ public class BreachDraftService {
     private boolean hasText(String value) {
         return value != null && !value.trim().isEmpty();
     }
+
 }
 
