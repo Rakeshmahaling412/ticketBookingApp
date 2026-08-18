@@ -3,6 +3,7 @@ package sg.breach.breachdraft.service;
 import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import sg.breach.breachdraft.dto.BreachDraftFilter;
 import sg.breach.breachdraft.dto.BreachDraftResponse;
 import sg.breach.breachdraft.dto.BreachDraftSpecification;
 import sg.breach.breachdraft.dto.CreateBreachDraftRequest;
@@ -19,8 +21,10 @@ import sg.breach.breachdraft.dto.UpdateBreachDraftRequest;
 import sg.breach.breachdraft.entity.BreachDraftEntity;
 import sg.breach.breachdraft.repository.BreachDraftRepository;
 import sg.breach.user.entity.ConnectedUser;
+import sg.breach.user.service.UserService;
 
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BreachDraftService {
@@ -29,6 +33,7 @@ public class BreachDraftService {
     private static final String EXPIRED = "EXPIRED";
 
     private final BreachDraftRepository breachDraftRepository;
+    private final UserService  userService;
 
 
     @Transactional(readOnly = true)
@@ -36,25 +41,28 @@ public class BreachDraftService {
         return toResponse(findDraftOrThrow(id));
     }
 
-    @Transactional(readOnly = true)
-    public Page<BreachDraftResponse> getAll(Pageable pageable, String breachCaseId, String breachCaseInputter, String emailAddress, String employeeName, String employeeIgg, String legalEntity, String businessUnit, String breachCategory,
-                                            String breachType,
-                                            String suggestedSeverity,
-                                            String breachFrequency,
-                                            String cumulativeBreachScore,
-                                            String identifiedBreachDate,
-                                            String breachDate,
-                                            String status,
-                                            String identificationMethod,
-                                            String emailStatus,
-                                            String batchId) {
+//    @Transactional(readOnly = true)
+//    public Page<BreachDraftResponse> getAll(Pageable pageable, BreachDraftFilter filter) {
+//
+//        Specification<BreachDraftEntity> specification = BreachDraftSpecification.filter(filter);
+//        return breachDraftRepository.findAll(specification, pageable).map(this::toResponse);
+//    }
 
-        Specification<BreachDraftEntity> specification = BreachDraftSpecification.filter( breachCaseId, breachCaseInputter, emailAddress, employeeName, employeeIgg, legalEntity, businessUnit, breachCategory, breachType, suggestedSeverity, breachFrequency, cumulativeBreachScore, identifiedBreachDate, breachDate, status,
-                                                                                          identificationMethod,
-                                                                                          emailStatus,
-                                                                                          batchId
-        );
-        return breachDraftRepository.findAll(specification, pageable).map(this::toResponse);
+    @Transactional(readOnly = true)
+    public Page<BreachDraftResponse> getAll(Pageable pageable,BreachDraftFilter filter,ConnectedUser user) {
+
+        String profileName = userService.resolveProfile(user.permissions());
+        String currentIgg = user.igg();
+
+        List<String> readableEntities = user.roleScopes();
+        List<String> readableBpos = user.roleScopes();
+        log.info("User profile: {}, IGG: {}, Readable Entities: {}, Readable BPOs: {}", profileName, currentIgg, readableEntities, readableBpos);
+
+        Specification<BreachDraftEntity> filterSpec = BreachDraftSpecification.filter(filter);
+
+        Specification<BreachDraftEntity> accessSpec = BreachDraftSpecification.accessControl(profileName, currentIgg, readableEntities, readableBpos);
+
+        return breachDraftRepository.findAll(filterSpec.and(accessSpec), pageable).map(this::toResponse);
     }
 
 
@@ -277,29 +285,29 @@ public class BreachDraftService {
     }
 
 
-    @Transactional
-    public BreachDraftResponse saveDraftToBreach(long id, SaveDraftToBreachRequest request, ConnectedUser user) {
-
-        BreachDraftEntity entity = findDraftOrThrow(id);
-        if (request == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request cannot be null");
-        }
-        if (request.breachScore() != null) {
-            entity.setBreachScore(request.breachScore());
-        }
-        if (request.occurrence() != null) {
-            entity.setOccurrence(request.occurrence());
-        }
-        if (request.cumulativeBreachScore() != null) {
-            entity.setCumulativeBreachScore(request.cumulativeBreachScore());
-        }
-        if (request.recommendedAction() != null) {
-            entity.setRecommendedAction(trimToNull(request.recommendedAction()));
-        }
-        entity.setLastUpdateBy(normalizeActor(user.igg()));
-        return toResponse(breachDraftRepository.save(entity));
-    }
-
+//    @Transactional
+//    public BreachDraftResponse saveDraftToBreach(long id, SaveDraftToBreachRequest request, ConnectedUser user) {
+//
+//        BreachDraftEntity entity = findDraftOrThrow(id);
+//        if (request == null) {
+//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request cannot be null");
+//        }
+//        if (request.breachScore() != null) {
+//            entity.setBreachScore(request.breachScore());
+//        }
+//        if (request.occurrence() != null) {
+//            entity.setOccurrence(request.occurrence());
+//        }
+//        if (request.cumulativeBreachScore() != null) {
+//            entity.setCumulativeBreachScore(request.cumulativeBreachScore());
+//        }
+//        if (request.recommendedAction() != null) {
+//            entity.setRecommendedAction(trimToNull(request.recommendedAction()));
+//        }
+//        entity.setLastUpdateBy(normalizeActor(user.igg()));
+//        return toResponse(breachDraftRepository.save(entity));
+//    }
+//
 
     @Transactional
     public void delete(long id) {
@@ -372,26 +380,26 @@ public class BreachDraftService {
         );
     }
 
-
-    @Transactional
-    public void massiveUpdateStatusExpired(List<Long> ids, ConnectedUser user) {
-        if (ids == null || ids.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "IDs list cannot be empty");
-        }
-
-        List<BreachDraftEntity> drafts = breachDraftRepository.findAllById(ids);
-
-        if (drafts.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No drafts found with provided IDs");
-        }
-
-        String actor = normalizeActor(user.igg());
-        for (BreachDraftEntity draft : drafts) {
-            draft.setStatus(EXPIRED);
-            draft.setLastUpdateBy(actor);
-        }
-        breachDraftRepository.saveAll(drafts);
-    }
+//
+//    @Transactional
+//    public void massiveUpdateStatusExpired(List<Long> ids, ConnectedUser user) {
+//        if (ids == null || ids.isEmpty()) {
+//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "IDs list cannot be empty");
+//        }
+//
+//        List<BreachDraftEntity> drafts = breachDraftRepository.findAllById(ids);
+//
+//        if (drafts.isEmpty()) {
+//            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No drafts found with provided IDs");
+//        }
+//
+//        String actor = normalizeActor(user.igg());
+//        for (BreachDraftEntity draft : drafts) {
+//            draft.setStatus(EXPIRED);
+//            draft.setLastUpdateBy(actor);
+//        }
+//        breachDraftRepository.saveAll(drafts);
+//    }
 
 
     private String normalizeActor(String actor) {

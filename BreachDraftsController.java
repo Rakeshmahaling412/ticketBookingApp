@@ -5,16 +5,16 @@ import jakarta.validation.Valid;
 
 import java.util.Arrays;
 import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -24,9 +24,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import sg.breach.breachdraft.dto.BreachDraftFilter;
 import sg.breach.breachdraft.dto.BreachDraftResponse;
 import sg.breach.breachdraft.dto.CreateBreachDraftRequest;
-import sg.breach.breachdraft.dto.SaveDraftToBreachRequest;
 import sg.breach.breachdraft.dto.UpdateBreachDraftRequest;
 import sg.breach.breachdraft.service.BreachDraftService;
 import sg.breach.user.entity.ConnectedUser;
@@ -54,39 +54,68 @@ public class BreachDraftsController {
         return breachDraftService.getById(id);
     }
 
-    @GetMapping
-    public Page<BreachDraftResponse> getAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size,
-                                            @RequestParam(required = false) String breachCaseId,
-                                            @RequestParam(required = false) String breachCaseInputter,
-                                            @RequestParam(required = false) String emailAddress,
-                                            @RequestParam(required = false) String employeeName,
-                                            @RequestParam(required = false) String employeeIgg,
-                                            @RequestParam(required = false) String legalEntity,
-                                            @RequestParam(required = false) String businessUnit,
-                                            @RequestParam(required = false) String breachCategory,
-                                            @RequestParam(required = false) String breachType,
-                                            @RequestParam(required = false) String suggestedSeverity,
-                                            @RequestParam(required = false) String breachFrequency,
-                                            @RequestParam(required = false) String cumulativeBreachScore,
-                                            @RequestParam(required = false) String identifiedBreachDate,
-                                            @RequestParam(required = false) String breachDate,
-                                            @RequestParam(required = false) String status,
-                                            @RequestParam(required = false) String identificationMethod,
-                                            @RequestParam(required = false) String emailStatus,
-                                            @RequestParam(required = false) String batchId,
-                                            HttpServletRequest httpRequest) {
 
+    @GetMapping
+    public Page<BreachDraftResponse> getAll(
+            BreachDraftFilter filter,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            HttpServletRequest httpRequest) {
         ConnectedUser user = getAuthenticatedUser(httpRequest);
-        checkPermission(user, Permission.READ_BREACH);
+
+//        String profileName = userService.resolveProfile(user.permissions());
+//
+//        String currentIgg = currentUser.getIgg();
+//
+//        List<String> readableEntities = getUserBreachReadableEntities();
+//        List<String> readableBpos     = getUserBreachReadableBpos();
+//
+////        checkPermission(user, Permission.READ_BREACH);
+//        checkAnyPermission(
+//                user,
+//                Permission.CREATE_BREACH,
+//                Permission.SPECIAL
+//        );
         Pageable pageable = PageRequest.of(page, size);
-        return breachDraftService.getAll(pageable, breachCaseId, breachCaseInputter, emailAddress, employeeName, employeeIgg, legalEntity, businessUnit, breachCategory, breachType, suggestedSeverity, breachFrequency, cumulativeBreachScore,
-                                         identifiedBreachDate,
-                                         breachDate,
-                                         status,
-                                         identificationMethod,
-                                         emailStatus,
-                                         batchId);
+
+        return breachDraftService.getAll(pageable, filter,user);
     }
+
+
+
+
+//    @GetMapping
+//    public Page<BreachDraftResponse> getAll(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size,
+//                                            @RequestParam(required = false) String breachCaseId,
+//                                            @RequestParam(required = false) String breachCaseInputter,
+//                                            @RequestParam(required = false) String emailAddress,
+//                                            @RequestParam(required = false) String employeeName,
+//                                            @RequestParam(required = false) String employeeIgg,
+//                                            @RequestParam(required = false) String legalEntity,
+//                                            @RequestParam(required = false) String businessUnit,
+//                                            @RequestParam(required = false) String breachCategory,
+//                                            @RequestParam(required = false) String breachType,
+//                                            @RequestParam(required = false) String suggestedSeverity,
+//                                            @RequestParam(required = false) String breachFrequency,
+//                                            @RequestParam(required = false) String cumulativeBreachScore,
+//                                            @RequestParam(required = false) String identifiedBreachDate,
+//                                            @RequestParam(required = false) String breachDate,
+//                                            @RequestParam(required = false) String status,
+//                                            @RequestParam(required = false) String identificationMethod,
+//                                            @RequestParam(required = false) String emailStatus,
+//                                            @RequestParam(required = false) String batchId,
+//                                            HttpServletRequest httpRequest) {
+//
+//        ConnectedUser user = getAuthenticatedUser(httpRequest);
+////        checkPermission(user, Permission.READ_BREACH);
+//        checkAnyPermission(
+//                user,
+//                Permission.CREATE_BREACH,
+//                Permission.SPECIAL
+//        );
+//        Pageable pageable = PageRequest.of(page, size);
+//        return breachDraftService.getAll(pageable, f);
+//    }
 
 
 //    @GetMapping("/by-creator/{creator}")
@@ -124,12 +153,22 @@ public class BreachDraftsController {
         return breachDraftService.update(id, request,user);
     }
 
-    @PostMapping("/{id}/save-to-breach")
-    public BreachDraftResponse saveDraftToBreach(@PathVariable long id, @Valid @RequestBody SaveDraftToBreachRequest request, HttpServletRequest httpRequest) {
+    @PatchMapping("/{id}")
+    public BreachDraftResponse patch(@PathVariable Long id,
+            @RequestBody UpdateBreachDraftRequest request,
+            HttpServletRequest httpRequest) {
         ConnectedUser user = getAuthenticatedUser(httpRequest);
-        checkPermission(user, Permission.EDIT_BREACH);
-        return breachDraftService.saveDraftToBreach(id, request,user);
+        checkAnyPermission(user, Permission.EDIT_BREACH, Permission.SPECIAL
+        );
+        return breachDraftService.update(id, request, user);
     }
+
+//    @PostMapping("/{id}/save-to-breach")
+//    public BreachDraftResponse saveDraftToBreach(@PathVariable long id, @Valid @RequestBody SaveDraftToBreachRequest request, HttpServletRequest httpRequest) {
+//        ConnectedUser user = getAuthenticatedUser(httpRequest);
+//        checkPermission(user, Permission.EDIT_BREACH);
+//        return breachDraftService.saveDraftToBreach(id, request,user);
+//    }
 
 
     @DeleteMapping("/{id}")
@@ -148,13 +187,13 @@ public class BreachDraftsController {
 
 
 
-    @PostMapping("/status/expired")
-    public ResponseEntity<Void> massiveUpdateStatusExpired(
-            @RequestBody List<Long> ids,
-            @AuthenticationPrincipal ConnectedUser user) {
-        breachDraftService.massiveUpdateStatusExpired(ids, user);
-        return ResponseEntity.noContent().build();
-    }
+//    @PostMapping("/status/expired")
+//    public ResponseEntity<Void> massiveUpdateStatusExpired(
+//            @RequestBody List<Long> ids,
+//            @AuthenticationPrincipal ConnectedUser user) {
+//        breachDraftService.massiveUpdateStatusExpired(ids, user);
+//        return ResponseEntity.noContent().build();
+//    }
 
     private ConnectedUser getAuthenticatedUser(HttpServletRequest request) {
         return userService.getOneBy(request);
@@ -166,9 +205,7 @@ public class BreachDraftsController {
         }
     }
 
-    private void checkAnyPermission(
-            ConnectedUser user,
-            Permission... requiredPermissions) {
+    private void checkAnyPermission(ConnectedUser user, Permission... requiredPermissions) {
         if (user == null || user.permissions() == null
             || Arrays.stream(requiredPermissions)
                      .noneMatch(user.permissions()::contains)) {
