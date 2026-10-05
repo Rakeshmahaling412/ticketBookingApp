@@ -62,7 +62,7 @@ public class BreachDraftEntity {
     private String breachType;
 
 
-    @Column(name = "description", columnDefinition = "CLOB")
+    @Column(name = "description")
     private String description;
 
     @Column(name = "identified_breach_date")
@@ -90,13 +90,13 @@ public class BreachDraftEntity {
     @Column(name = "email_status")
     private String emailStatus;
 
-    @Column(name = "email_content", columnDefinition = "CLOB")
+    @Column(name = "email_content")
     private String emailContent;
 
-    @Column(name = "email_comments_to_staff", columnDefinition = "CLOB")
+    @Column(name = "email_comments_to_staff")
     private String emailCommentsToStaff;
 
-    @Column(name = "comments", columnDefinition = "CLOB")
+    @Column(name = "comments")
     private String comments;
 
     @Column(name = "reported_to_regulator_date")
@@ -185,6 +185,15 @@ public class BreachDraftEntity {
     @UpdateTimestamp
     @Column(name = "last_update_time", nullable = false)
     private LocalDateTime lastUpdateTime;
+
+    @Column(name = "breach_case_id")
+    private String breachCaseId;
+
+    @Column(name = "breach_case_inputter")
+    private String breachCaseInputter;
+
+    @Column(name = "breach_category")
+    private String breachCategory;
 }
 
 
